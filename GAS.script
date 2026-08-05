@@ -1,0 +1,396 @@
+// ==========================================
+// 設定値
+// ==========================================
+const NEXT_APP_URL = 'https://my-web-app--report-dashboard-6a456.asia-east1.hosted.app'; // firebaseのデプロイURL
+const SYNC_SECRET = 'sync_secret_WN8tpeX2'; // .env.localのSYNC_SECRETと同じ値
+
+// ==========================================
+// メイン関数：スプシのデータを集計してDBに送信
+// ==========================================
+function syncToSupabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 各シートを取得
+  const sessionSheet = ss.getSheetByName('【データ】セッション数');
+  const flipSheet = ss.getSheetByName('【データ】フリップデスク');
+  const friendSheet = ss.getSheetByName('【データ】友だちデータ');
+  const cvSheet = ss.getSheetByName('【データ】成果ログ');
+  const sharedSheet = ss.getSheetByName('【データ】基幹数値');
+  const sharedData = sharedSheet.getDataRange().getValues();
+  const scenarioFriendSheet = ss.getSheetByName('【データ】友だちデータ(シナリオ用)');
+  const scenarioFriendData = scenarioFriendSheet.getDataRange().getValues();
+
+  // セッション数シート（ヘッダーが4行目）
+  const sessionData = sessionSheet.getDataRange().getValues();
+  const sessionHeader = sessionData[3]; // 4行目
+  const sessionDateIdx = sessionHeader.indexOf('日付');
+  const sessionTotalIdx = sessionHeader.indexOf('合計');
+
+  // フリップデスクシート
+  const flipData = flipSheet.getDataRange().getValues();
+  const flipHeader = flipData[0];
+  const flipDateIdx = flipHeader.indexOf('日付');
+  const flipImpIdx = flipHeader.indexOf('自動ポップアップ表示回数');
+  const flipClIdx = flipHeader.indexOf('ポップアップ内のクリック数');
+  const flipPIdx = flipHeader.indexOf('p');
+  const flipSIdx = flipHeader.indexOf('s');
+  const flipExitIdx = flipHeader.indexOf('離脱地点');
+  const flipAppealIdx = flipHeader.indexOf('訴求');
+
+  // 友だちデータシート
+  const friendData = friendSheet.getDataRange().getValues();
+  const friendHeader = friendData[0];
+  const friendDateIdx = friendHeader.indexOf('友だち追加日時');
+  const friendPIdx = friendHeader.indexOf('p');
+  const friendSIdx = friendHeader.indexOf('s');
+  const friendExitIdx = friendHeader.indexOf('離脱地点');
+  const friendAppealIdx = friendHeader.indexOf('訴求');
+
+  // 成果ログシート
+  const cvData = cvSheet.getDataRange().getValues();
+  const cvHeader = cvData[0];
+  const cvDateIdx = cvHeader.indexOf('成果日時');
+  const cvPIdx = cvHeader.indexOf('p');
+  const cvSIdx = cvHeader.indexOf('s');
+  const cvPriceIdx = cvHeader.indexOf('成果単価');
+  const cvAppealIdx = cvHeader.indexOf('訴求');
+  const cvStepIdx = cvHeader.indexOf('通数');
+
+  // 友だちデータシート(シナリオ用)
+  const scenarioFriendHeader = scenarioFriendData[0];
+  const scenarioFriendDateIdx = scenarioFriendHeader.indexOf('友だち追加日時');
+  const scenarioFriendSIdx = scenarioFriendHeader.indexOf('s');
+  const scenarioFriendStepIdx = scenarioFriendHeader.indexOf('通数');
+  const scenarioFriendBlockIdx = scenarioFriendHeader.indexOf('ユーザーブロック');
+
+  // ==========================================
+  // 日付を "YYYY-MM-DD" 形式に正規化する関数
+  // スプシの日付型・文字列型どちらにも対応
+  // ==========================================
+  function toDateStr(value) {
+    if (!value) return '';
+
+    // Dateオブジェクトまたはタイムスタンプ形式の場合
+    if (value instanceof Date || String(value).includes('T')) {
+      const date = new Date(value);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // "2025/9/30 16:38" 形式の場合
+    const str = String(value);
+    const part = str.split(' ')[0];
+    const parts = part.split('/');
+    if (parts.length !== 3) return '';
+    const [y, m, d] = parts;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  // ==========================================
+  // 集計用マップの初期化
+  // ==========================================
+  const dateMap = {}; // 日次レポート
+  const pMap = {};    // ポップアップ別
+  const sMap = {};    // シナリオ別
+  const exitMap = {}; // 離脱地点別
+  const appealMap = {}; // 訴求別
+  const sharedMap = {}; // 期間別（共有用）
+  const scenarioStepMap = {}; // シナリオ×通数別集計
+
+  // ==========================================
+  // PV数の集計（セッション数シートから）
+  // ==========================================
+  // 訴求別のセッション列インデックスを動的に取得
+  // 「日付」「合計」以外の列を訴求として扱う
+  const appealSessionCols = [];
+  for (let i = 0; i < sessionHeader.length; i++) {
+    const colName = sessionHeader[i];
+    if (colName && colName !== '日付' && colName !== '合計') {
+      appealSessionCols.push({ idx: i, name: colName });
+    }
+  }
+
+  // PV数の集計（セッション数シートから）
+  for (let i = 4; i < sessionData.length; i++) {
+    const row = sessionData[i];
+    const date = toDateStr(row[sessionDateIdx]);
+    if (!date) continue;
+
+    // 全体のPV数（合計列）
+    if (!dateMap[date]) dateMap[date] = { pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+    dateMap[date].pv += Number(row[sessionTotalIdx]) || 0;
+
+    // 訴求別のPV数
+    for (const col of appealSessionCols) {
+      const pv = Number(row[col.idx]) || 0;
+      if (pv === 0) continue;
+      const key = `${date}__${col.name}`;
+      if (!appealMap[key]) appealMap[key] = { date, appeal_value: col.name, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      appealMap[key].pv += pv;
+    }
+  }
+
+  // ==========================================
+  // imp数・CL数の集計（フリップデスクシートから）
+  // p別・s別・離脱地点別にも同時に集計
+  // ==========================================
+  for (let i = 1; i < flipData.length; i++) {
+    const row = flipData[i];
+    const date = toDateStr(row[flipDateIdx]);
+    if (!date) continue;
+    const imp = Number(row[flipImpIdx]) || 0;
+    const cl = Number(row[flipClIdx]) || 0;
+    const p = row[flipPIdx];
+    const s = row[flipSIdx];
+    const exit = row[flipExitIdx];
+
+    // 日次
+    if (!dateMap[date]) dateMap[date] = { pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+    dateMap[date].imp += imp;
+    dateMap[date].cl += cl;
+
+    // p別
+    if (p && p !== '-') {
+      const key = `${date}__${p}`;
+      if (!pMap[key]) pMap[key] = { date, p_value: p, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      pMap[key].imp += imp;
+      pMap[key].cl += cl;
+    }
+
+    // s別
+    if (s && s !== '-') {
+      const key = `${date}__${s}`;
+      if (!sMap[key]) sMap[key] = { date, s_value: s, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      sMap[key].imp += imp;
+      sMap[key].cl += cl;
+    }
+
+    // 離脱地点別
+    if (exit && exit !== '-') {
+      const key = `${date}__${exit}`;
+      if (!exitMap[key]) exitMap[key] = { date, exit_value: exit, pv: 0, imp: 0, cl: 0, friend: 0 };
+      exitMap[key].imp += imp;
+      exitMap[key].cl += cl;
+    }
+
+    // 訴求別
+    const appeal = row[flipAppealIdx];
+    if (appeal && appeal !== '-') {
+      const key = `${date}__${appeal}`;
+      if (!appealMap[key]) appealMap[key] = { date, appeal_value: appeal, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      appealMap[key].imp += imp;
+      appealMap[key].cl += cl;
+    }
+  }
+
+  // ==========================================
+  // 友だち追加数の集計（友だちデータシートから）
+  // ==========================================
+  for (let i = 1; i < friendData.length; i++) {
+    const row = friendData[i];
+    const date = toDateStr(row[friendDateIdx]);
+    if (!date) continue;
+    const p = row[friendPIdx];
+    const s = row[friendSIdx];
+    const exit = row[friendExitIdx];
+
+    // 日次
+    if (!dateMap[date]) dateMap[date] = { pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+    dateMap[date].friend += 1;
+
+    // p別
+    if (p && p !== '-') {
+      const key = `${date}__${p}`;
+      if (!pMap[key]) pMap[key] = { date, p_value: p, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      pMap[key].friend += 1;
+    }
+
+    // s別
+    if (s && s !== '-') {
+      const key = `${date}__${s}`;
+      if (!sMap[key]) sMap[key] = { date, s_value: s, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      sMap[key].friend += 1;
+    }
+
+    // 離脱地点別
+    if (exit && exit !== '-') {
+      const key = `${date}__${exit}`;
+      if (!exitMap[key]) exitMap[key] = { date, exit_value: exit, pv: 0, imp: 0, cl: 0, friend: 0 };
+      exitMap[key].friend += 1;
+    }
+
+    // 訴求別
+    const appeal = row[friendAppealIdx];
+    if (appeal && appeal !== '-') {
+      const key = `${date}__${appeal}`;
+      if (!appealMap[key]) appealMap[key] = { date, appeal_value: appeal, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      appealMap[key].friend += 1;
+    }
+  }
+
+  // ==========================================
+  // CV数の集計（成果ログシートから）
+  // ==========================================
+  for (let i = 1; i < cvData.length; i++) {
+    const row = cvData[i];
+    const date = toDateStr(row[cvDateIdx]);
+    if (!date) continue;
+    const p = row[cvPIdx];
+    const s = row[cvSIdx];
+    const price = Number(row[cvPriceIdx]) || 0; // 成果単価
+
+    // 日次
+    if (!dateMap[date]) dateMap[date] = { pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+    dateMap[date].cv += 1;
+    dateMap[date].billing += price;
+
+    // p別
+    if (p && p !== '-') {
+      const key = `${date}__${p}`;
+      if (!pMap[key]) pMap[key] = { date, p_value: p, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      pMap[key].cv += 1;
+      pMap[key].billing += price;
+    }
+
+    // s別
+    if (s && s !== '-') {
+      const key = `${date}__${s}`;
+      if (!sMap[key]) sMap[key] = { date, s_value: s, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      sMap[key].cv += 1;
+      sMap[key].billing += price;
+    }
+
+    // 訴求別
+    const appeal = row[cvAppealIdx];
+    if (appeal && appeal !== '-') {
+      const key = `${date}__${appeal}`;
+      if (!appealMap[key]) appealMap[key] = { date, appeal_value: appeal, pv: 0, imp: 0, cl: 0, friend: 0, cv: 0, billing: 0 };
+      appealMap[key].cv += 1;
+      appealMap[key].billing += price;
+    }
+  }
+
+  // ==========================================
+  // シナリオ×通数別集計
+  // ==========================================
+
+  // 友だちデータ(シナリオ用)から送信人数・ブロック数を集計
+  for (let i = 1; i < scenarioFriendData.length; i++) {
+    const row = scenarioFriendData[i];
+    const s = row[scenarioFriendSIdx];
+    const step = row[scenarioFriendStepIdx];
+    const block = row[scenarioFriendBlockIdx];
+    if (!s || s === '-' || !step) continue;
+
+    const key = `${s}__${step}`;
+    if (!scenarioStepMap[key]) {
+      scenarioStepMap[key] = { s_value: s, step, send_count: 0, click_count: 0, cv_count: 0, block_count: 0 };
+    }
+    scenarioStepMap[key].send_count += 1;
+    if (block === 1 || block === '1') {
+      scenarioStepMap[key].block_count += 1;
+    }
+  }
+
+  // クリックログから通数別クリック数を集計
+  const clickLogSheet = ss.getSheetByName('【データ】クリックログ');
+  const clickLogData = clickLogSheet.getDataRange().getValues();
+  const clickLogHeader = clickLogData[0];
+  const clickLogSIdx = clickLogHeader.indexOf('s');
+  const clickLogStepIdx = clickLogHeader.indexOf('通数');
+  const clickLogTypeIdx = clickLogHeader.indexOf('CV/追加');
+
+  for (let i = 1; i < clickLogData.length; i++) {
+    const row = clickLogData[i];
+    if (row[clickLogTypeIdx] !== 'LINE追加') continue;
+    const s = row[clickLogSIdx];
+    const step = row[clickLogStepIdx];
+    if (!s || s === '-' || !step) continue;
+
+    const key = `${s}__${step}`;
+    if (!scenarioStepMap[key]) {
+      scenarioStepMap[key] = { s_value: s, step, send_count: 0, click_count: 0, cv_count: 0, block_count: 0 };
+    }
+    scenarioStepMap[key].click_count += 1;
+  }
+
+  // 成果ログから通数別CV数を集計
+  for (let i = 1; i < cvData.length; i++) {
+    const row = cvData[i];
+    const s = row[cvSIdx];
+    const step = row[cvStepIdx];
+    if (!s || s === '-' || !step) continue;
+
+    const key = `${s}__${step}`;
+    if (!scenarioStepMap[key]) {
+      scenarioStepMap[key] = { s_value: s, step, send_count: 0, click_count: 0, cv_count: 0, block_count: 0 };
+    }
+    scenarioStepMap[key].cv_count += 1;
+  }
+
+  // ==========================================
+  // 期間別（共有用）の集計（基幹数値シートから）
+  // A列: 日付、B列: CV数、C列: 成果単価、D列: 請求額
+  // ==========================================
+  for (let i = 1; i < sharedData.length; i++) {
+    const row = sharedData[i];
+    const date = toDateStr(row[0]); // A列: 日付
+    if (!date) continue;
+    const cv = Number(row[1]) || 0;       // B列: CV数
+    const unitPrice = Number(row[2]) || 0; // C列: 成果単価
+    const billing = Number(row[3]) || 0;   // D列: 請求額
+    sharedMap[date] = { date, cv, unit_price: unitPrice, billing };
+  }
+
+  // ==========================================
+  // PV数をp別・s別・離脱地点別にも設定
+  // ==========================================
+  for (const key of Object.keys(pMap)) {
+    pMap[key].pv = dateMap[pMap[key].date]?.pv || 0;
+  }
+  for (const key of Object.keys(sMap)) {
+    sMap[key].pv = dateMap[sMap[key].date]?.pv || 0;
+  }
+  for (const key of Object.keys(exitMap)) {
+    exitMap[key].pv = dateMap[exitMap[key].date]?.pv || 0;
+  }
+
+  // ==========================================
+  // データ件数の確認ログ
+  // ==========================================
+  Logger.log('dateMap件数: ' + Object.keys(dateMap).length);
+  Logger.log('pMap件数: ' + Object.keys(pMap).length);
+  Logger.log('sMap件数: ' + Object.keys(sMap).length);
+  Logger.log('exitMap件数: ' + Object.keys(exitMap).length);
+
+  // ==========================================
+  // Next.js APIを経由してSupabaseに送信
+  // ==========================================
+  const url = `${NEXT_APP_URL}/api/sync`;
+  const options = {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-sync-secret': SYNC_SECRET,
+    },
+    payload: JSON.stringify({
+      dateMap: Object.entries(dateMap).map(([date, d]) => ({ date, ...d })),
+      pMap: Object.values(pMap),
+      sMap: Object.values(sMap),
+      exitMap: Object.values(exitMap),
+      appealMap: Object.values(appealMap),
+      sharedMap: Object.values(sharedMap),
+      scenarioStepMap: Object.values(scenarioStepMap),
+    }),
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  Logger.log('syncレスポンス: ' + response.getResponseCode() + ' ' + response.getContentText());
+  Logger.log('sharedMap件数: ' + Object.keys(sharedMap).length);
+  Logger.log('sharedMap sample: ' + JSON.stringify(Object.values(sharedMap).slice(0, 2)));
+}
+
+
+

@@ -1,0 +1,30 @@
+runConfig:
+  minInstances: 0
+env:
+  - variable: NEXTAUTH_SECRET
+    secret: NEXTAUTH_SECRET
+  - variable: NEXTAUTH_URL
+    secret: NEXTAUTH_URL
+  - variable: GOOGLE_CLIENT_ID
+    secret: GOOGLE_CLIENT_ID
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: GOOGLE_CLIENT_SECRET
+  - variable: FB_PROJECT_ID
+    secret: FB_PROJECT_ID
+  - variable: FB_CLIENT_EMAIL
+    secret: FB_CLIENT_EMAIL
+  - variable: FB_PRIVATE_KEY
+    secret: FB_PRIVATE_KEY
+  - variable: SYNC_SECRET
+    secret: SYNC_SECRET
+  - variable: GOOGLE_SHEETS_ID
+    secret: GOOGLE_SHEETS_ID
+  - variable: GOOGLE_SERVICE_ACCOUNT_EMAIL
+    secret: GOOGLE_SERVICE_ACCOUNT_EMAIL
+  - variable: GOOGLE_PRIVATE_KEY
+    secret: GOOGLE_PRIVATE_KEY
+  - variable: NEXT_PUBLIC_ENABLE_SHARED_REPORT
+    value: "true"
+    availability:
+      - BUILD
+      - RUNTIME
