@@ -98,7 +98,7 @@ export default function MediaCostEditPage({
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-[#3A5A6A]">{media} の広告費設定</h1>
         <Link href="/media-cost" className="text-sm text-[#5A7A8A] hover:text-[#3A5A6A]">
@@ -214,13 +214,7 @@ export default function MediaCostEditPage({
           </div>
         ))}
 
-        {/* 追加ボタン */}
-        <button
-          onClick={addRule}
-          className="w-full py-3 rounded-xl text-sm font-medium text-[#7BB8D4] border-2 border-dashed border-[#C8DCE8] hover:border-[#7BB8D4] transition-colors"
-        >
-          ＋ 設定を追加
-        </button>
+        
       </div>
     </div>
   );

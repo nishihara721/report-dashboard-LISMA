@@ -66,7 +66,7 @@ export default function MediaCostNewPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-[#3A5A6A]">メディアを追加</h1>
         <Link href="/media-cost" className="text-sm text-[#5A7A8A] hover:text-[#3A5A6A]">

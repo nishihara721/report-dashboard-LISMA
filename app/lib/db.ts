@@ -40,7 +40,7 @@ export async function getReportDataByFlowFromDB(flowValue: string, from?: string
     .get();
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
-    date: string; flow: string; cl: number; friend: number; cv: number; ad_cost?: number;
+    date: string; flow: string; cl: number; friend: number; cv: number; ad_cost?: number; calc_ad_cost?: number;
   });
 
   return docs
@@ -57,6 +57,9 @@ export async function getReportDataByFlowFromDB(flowValue: string, from?: string
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
       ad_cost: d.ad_cost ?? 0,
+      adCost: d.calc_ad_cost ?? 0,
+      cpf: d.friend > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.friend) : 0,
+      cpa: d.cv > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.cv) : 0,
     }));
 }
 
@@ -71,7 +74,7 @@ export async function getReportDataByMediaFromDB(mediaValue: string, from?: stri
     .get();
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
-    date: string; media: string; cl: number; friend: number; cv: number; ad_cost?: number;
+    date: string; media: string; cl: number; friend: number; cv: number; ad_cost?: number; calc_ad_cost?: number;
   });
 
   return docs
@@ -88,6 +91,9 @@ export async function getReportDataByMediaFromDB(mediaValue: string, from?: stri
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
       ad_cost: d.ad_cost ?? 0,
+      adCost: d.calc_ad_cost ?? 0,
+      cpf: d.friend > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.friend) : 0,
+      cpa: d.cv > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.cv) : 0,
     }));
 }
 
@@ -107,7 +113,7 @@ export async function getReportDataByCodeFromDB(codeValue: string, from?: string
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
     date: string; flow: string; media: string; media_no: string;
-    cl: number; friend: number; cv: number; ad_cost?: number;
+    cl: number; friend: number; cv: number; ad_cost?: number; calc_ad_cost?: number;
   });
 
   return docs
@@ -124,6 +130,9 @@ export async function getReportDataByCodeFromDB(codeValue: string, from?: string
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
       ad_cost: d.ad_cost ?? 0,
+      adCost: d.calc_ad_cost ?? 0,
+      cpf: d.friend > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.friend) : 0,
+      cpa: d.cv > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.cv) : 0,
     }));
 }
 

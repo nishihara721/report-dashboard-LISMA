@@ -68,7 +68,7 @@ export default function MediaCostPage() {
   const mediaList = Object.keys(settings).sort();
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-[#3A5A6A]">広告費設定</h1>
         <Link
