@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "report-dashboard-6a456"
-  }
+    "default": "lisma--report-dashboard",
+    "LISMA--report-dashboard": "lisma--report-dashboard"
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -17,14 +17,3 @@ env:
     secret: FB_PRIVATE_KEY
   - variable: SYNC_SECRET
     secret: SYNC_SECRET
-  - variable: GOOGLE_SHEETS_ID
-    secret: GOOGLE_SHEETS_ID
-  - variable: GOOGLE_SERVICE_ACCOUNT_EMAIL
-    secret: GOOGLE_SERVICE_ACCOUNT_EMAIL
-  - variable: GOOGLE_PRIVATE_KEY
-    secret: GOOGLE_PRIVATE_KEY
-  - variable: NEXT_PUBLIC_ENABLE_SHARED_REPORT
-    value: "true"
-    availability:
-      - BUILD
-      - RUNTIME
