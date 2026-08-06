@@ -14,5 +14,6 @@ export const config = {
     '/media/:path*',
     '/code/:path*',
     '/admin/:path*',
+    '/media-cost/:path*',
   ],
 };

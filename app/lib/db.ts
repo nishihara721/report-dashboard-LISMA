@@ -40,7 +40,7 @@ export async function getReportDataByFlowFromDB(flowValue: string, from?: string
     .get();
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
-    date: string; flow: string; cl: number; friend: number; cv: number;
+    date: string; flow: string; cl: number; friend: number; cv: number; ad_cost?: number;
   });
 
   return docs
@@ -56,6 +56,7 @@ export async function getReportDataByFlowFromDB(flowValue: string, from?: string
       friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      ad_cost: d.ad_cost ?? 0,
     }));
 }
 
@@ -70,7 +71,7 @@ export async function getReportDataByMediaFromDB(mediaValue: string, from?: stri
     .get();
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
-    date: string; media: string; cl: number; friend: number; cv: number;
+    date: string; media: string; cl: number; friend: number; cv: number; ad_cost?: number;
   });
 
   return docs
@@ -86,6 +87,7 @@ export async function getReportDataByMediaFromDB(mediaValue: string, from?: stri
       friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      ad_cost: d.ad_cost ?? 0,
     }));
 }
 
@@ -105,7 +107,7 @@ export async function getReportDataByCodeFromDB(codeValue: string, from?: string
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
     date: string; flow: string; media: string; media_no: string;
-    cl: number; friend: number; cv: number;
+    cl: number; friend: number; cv: number; ad_cost?: number;
   });
 
   return docs
@@ -121,6 +123,7 @@ export async function getReportDataByCodeFromDB(codeValue: string, from?: string
       friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      ad_cost: d.ad_cost ?? 0,
     }));
 }
 
@@ -281,4 +284,122 @@ export async function getSummaryDataFromDB() {
     }));
 
   return { byMonth };
+}
+
+// ==========================================
+// メディア別広告費設定を取得する関数
+// ==========================================
+export async function getMediaCostSettingsFromDB() {
+  const snapshot = await adminDb.collection('media_cost_settings').get();
+  const settings: Record<string, {
+    type: string;
+    rate?: number;
+    cpf?: number;
+    cpa?: number;
+    from_date: string;
+  }[]> = {};
+
+  for (const doc of snapshot.docs) {
+    const rulesSnapshot = await adminDb
+      .collection('media_cost_settings')
+      .doc(doc.id)
+      .collection('rules')
+      .get();
+
+    console.log(`${doc.id} rules count:`, rulesSnapshot.docs.length);
+    rulesSnapshot.docs.forEach(d => console.log(`${doc.id} rule:`, JSON.stringify(d.data())));
+
+    settings[doc.id] = rulesSnapshot.docs.map((ruleDoc) => ruleDoc.data() as {
+      type: string;
+      rate?: number;
+      cpf?: number;
+      cpa?: number;
+      from_date: string;
+    });
+  }
+
+  return settings;
+}
+
+// ==========================================
+// メディア別広告費設定を保存する関数
+// ==========================================
+export async function upsertMediaCostSettingFromDB(media: string, data: {
+  from_date: string;
+  type: string;
+  rate?: number;
+  cpf?: number;
+  cpa?: number;
+}) {
+  // メディアのドキュメントを作成
+  await adminDb.collection('media_cost_settings').doc(media).set(
+    { updated_at: new Date().toISOString() },
+    { merge: true }
+  );
+
+  // rulesサブコレクションに保存
+  const ruleRef = adminDb
+    .collection('media_cost_settings')
+    .doc(media)
+    .collection('rules')
+    .doc(data.from_date);
+
+  console.log(`Saving rule for ${media} on ${data.from_date}:`, JSON.stringify(data));
+
+  await ruleRef.set({
+    from_date: data.from_date,
+    type: data.type,
+    rate: data.rate ?? null,
+    cpf: data.cpf ?? null,
+    cpa: data.cpa ?? null,
+  });
+}
+
+// ==========================================
+// メディア別広告費設定を削除する関数
+// ==========================================
+export async function deleteMediaCostSettingFromDB(media: string, fromDate: string) {
+  await adminDb
+    .collection('media_cost_settings')
+    .doc(media)
+    .collection('rules')
+    .doc(fromDate)
+    .delete();
+}
+
+// ==========================================
+// 広告費を計算する関数（日付に応じた設定を適用）
+// ==========================================
+export function calcAdCost(
+  adCost: number,
+  friend: number,
+  cv: number,
+  date: string,
+  rules?: {
+    type: string;
+    rate?: number;
+    cpf?: number;
+    cpa?: number;
+    from_date: string;
+  }[]
+): number {
+  if (!rules || rules.length === 0) return 0;
+
+  // 日付以前で最も新しいルールを適用
+  const sorted = [...rules].sort((a, b) => b.from_date.localeCompare(a.from_date));
+  const setting = sorted.find((r) => r.from_date <= date);
+  if (!setting) return 0;
+
+  switch (setting.type) {
+    case 'budget':
+      return Math.round(adCost * (setting.rate ?? 1));
+    case 'affi_cpf':
+      return Math.round((setting.cpf ?? 0) * friend);
+    case 'affi_cpa':
+      return Math.round((setting.cpa ?? 0) * cv);
+    case 'budget_cpa':
+      return Math.round(adCost * (setting.rate ?? 1) + (setting.cpa ?? 0) * cv);
+    default:
+      return 0;
+  }
 }

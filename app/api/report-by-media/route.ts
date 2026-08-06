@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getReportDataByMediaFromDB } from '@/app/lib/db';
+import { getReportDataByMediaFromDB, getMediaCostSettingsFromDB, calcAdCost } from '@/app/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +9,25 @@ export async function GET(request: Request) {
     const mediaValue = searchParams.get('media') ?? '';
     const from = searchParams.get('from') ?? undefined;
     const to = searchParams.get('to') ?? undefined;
-    const data = await getReportDataByMediaFromDB(mediaValue, from, to);
-    return NextResponse.json(data);
+
+    const [data, costSettings] = await Promise.all([
+      getReportDataByMediaFromDB(mediaValue, from, to),
+      getMediaCostSettingsFromDB(),
+    ]);
+
+    const rules = costSettings[mediaValue];
+
+    const result = data.map((d) => {
+      const adCost = calcAdCost(d.ad_cost ?? 0, d.friend, d.cv, d.date, rules);
+      return {
+        ...d,
+        adCost,
+        cpf: d.friend > 0 ? Math.round(adCost / d.friend) : 0,
+        cpa: d.cv > 0 ? Math.round(adCost / d.cv) : 0,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });

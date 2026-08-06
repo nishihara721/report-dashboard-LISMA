@@ -80,7 +80,7 @@ function CodeTableWrapper({
 
   // コード表示名（flow__media__mediaNo → わかりやすい表示に）
   const [flow, media, mediaNo] = codeValue.split('__');
-  const displayName = `${flow} / ${media} / ${mediaNo}`;
+  const displayName = `${flow}(${media}-${mediaNo})`;
 
   return (
     <div className="min-w-[600px]">
@@ -164,7 +164,7 @@ export default function CodeReport() {
   // コードの表示名変換
   function codeLabel(code: string) {
     const [flow, media, mediaNo] = code.split('__');
-    return `${flow} / ${media} / ${mediaNo}`;
+    return `${flow}(${media}-${mediaNo})`;
   }
 
   return (
