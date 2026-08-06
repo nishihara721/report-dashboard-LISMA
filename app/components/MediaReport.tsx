@@ -14,6 +14,9 @@ type DailyRow = {
   friendRate: string;
   cv: number;
   cvr: string;
+  adCost?: number;
+  cpf?: number;
+  cpa?: number;
 };
 
 const COLUMNS = [
@@ -53,13 +56,14 @@ function MediaTableWrapper({
   if (loading) return <Loading />;
 
   const monthlyRows = (() => {
-    const map: Record<string, { cl: number; friend: number; cv: number }> = {};
+    const map: Record<string, { cl: number; friend: number; cv: number; adCost?: number; cpf?: number; cpa?: number }> = {};
     for (const r of rows) {
       const month = r.date.slice(0, 7);
-      if (!map[month]) map[month] = { cl: 0, friend: 0, cv: 0 };
+      if (!map[month]) map[month] = { cl: 0, friend: 0, cv: 0, adCost: 0, cpf: 0, cpa: 0 };
       map[month].cl += r.cl;
       map[month].friend += r.friend;
       map[month].cv += r.cv;
+      map[month].adCost = (map[month].adCost ?? 0) + (r.adCost ?? 0);
     }
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   })();
@@ -76,6 +80,9 @@ function MediaTableWrapper({
     friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
     cv: d.cv,
     cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+    adCost: d.adCost,
+    cpf: d.cpf,
+    cpa: d.cpa,
   }));
 
   return (
@@ -114,8 +121,18 @@ function MediaTableWrapper({
                       <span className="whitespace-nowrap">{row.date}</span>
                     ) : col.key === 'friendRate' || col.key === 'cvr' ? (
                       <span className="text-right block">{row[col.key as keyof typeof row] ?? '-'}</span>
-                    ) : col.key === 'cpf' || col.key === 'cpa' || col.key === 'adCost' ? (
-                      <span className="text-right block">-</span>
+                    ) : col.key === 'adCost' ? (
+                      <span className="text-right block">
+                        {row.adCost ? `¥${row.adCost.toLocaleString()}` : '-'}
+                      </span>
+                    ) : col.key === 'cpf' ? (
+                      <span className="text-right block">
+                        {row.cpf ? `¥${row.cpf.toLocaleString()}` : '-'}
+                      </span>
+                    ) : col.key === 'cpa' ? (
+                      <span className="text-right block">
+                        {row.cpa ? `¥${row.cpa.toLocaleString()}` : '-'}
+                      </span>
                     ) : (
                       <span className="text-right block">{Number(row[col.key as keyof typeof row] ?? 0).toLocaleString()}</span>
                     )}
