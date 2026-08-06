@@ -5,11 +5,61 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
 const ALL_PAGES = [
-  { key: 'summary', label: 'サマリ', href: '/client/summary', icon: ... },
-  { key: 'period', label: '期間別', href: '/client/period', icon: ... },
-  { key: 'flow', label: 'フロー別', href: '/client/flow', icon: ... },
-  { key: 'media', label: 'メディア別', href: '/client/media', icon: ... },
-  { key: 'code', label: 'コード別', href: '/client/code', icon: ... },
+  {
+    key: 'summary',
+    label: 'サマリ',
+    href: '/client/summary',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+      </svg>
+    ),
+  },
+  {
+    key: 'period',
+    label: '期間別',
+    href: '/client/period',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    key: 'flow',
+    label: 'フロー別',
+    href: '/client/flow',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    ),
+  },
+  {
+    key: 'media',
+    label: 'メディア別',
+    href: '/client/media',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+        <polyline points="17 2 12 7 7 2" />
+      </svg>
+    ),
+  },
+  {
+    key: 'code',
+    label: 'コード別',
+    href: '/client/code',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    ),
+  },
 ];
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
