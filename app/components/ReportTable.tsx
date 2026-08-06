@@ -5,23 +5,27 @@ import { useSession } from 'next-auth/react';
 import { useFilterBar } from '../hooks/useFilterBar';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import FilterBar from './FilterBar';
-import ReportTableCore, { DailyRow } from './ReportTableCore';
 import Loading from './Loading';
+
+type DailyRow = {
+  date: string;
+  cl: number;
+  friend: number;
+  friendRate: string;
+  cv: number;
+  cvr: string;
+};
 
 const COLUMNS = [
   { key: 'date', label: '日付', visible: true },
-  { key: 'pv', label: 'PV数', visible: true },
-  { key: 'imp', label: 'imp数', visible: true },
-  { key: 'impRate', label: 'imp率', visible: true },
   { key: 'cl', label: 'CL数', visible: true },
-  { key: 'ctr', label: 'CTR', visible: true },
   { key: 'friend', label: '友だち追加数', visible: true },
   { key: 'friendRate', label: '友だち追加率', visible: true },
   { key: 'cv', label: 'CV数', visible: true },
   { key: 'cvr', label: 'CVR', visible: true },
-  { key: 'unitPrice', label: '成果単価', visible: true },
-  { key: 'billing', label: '請求額', visible: true },
-  { key: 'note', label: '施策・修正点など', visible: true },
+  { key: 'cpf', label: 'CPF', visible: true },
+  { key: 'cpa', label: 'CPA', visible: true },
+  { key: 'adCost', label: '広告費', visible: true },
 ];
 
 export default function ReportTable() {
@@ -39,8 +43,10 @@ export default function ReportTable() {
   const { columns, toggleColumn, visibleColumns } = useColumnVisibility(COLUMNS);
 
   useEffect(() => {
-    setMounted(true);
-    setLoading(true);
+    Promise.resolve().then(() => {
+      setMounted(true);
+      setLoading(true);
+    });
     Promise.all([
       fetch(`/api/report?${filter.apiDateRange}`).then((res) => res.json()),
       fetch(`/api/notes?${filter.apiDateRange}`).then((res) => res.json()),
@@ -54,7 +60,6 @@ export default function ReportTable() {
     });
   }, [filter.apiDateRange]);
 
-  // フォーム外クリックで編集を閉じる
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
@@ -62,11 +67,9 @@ export default function ReportTable() {
         setEditingNote(null);
       }
     }
-
     if (editingNote) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -74,12 +77,10 @@ export default function ReportTable() {
 
   if (!mounted) return null;
 
-  // メモ編集中の状態を更新
   function handleNoteEdit(date: string, value: string) {
     setEditingNote({ date, value });
   }
 
-  // メモを保存
   async function handleNoteSave(date: string, note: string) {
     await fetch('/api/notes', {
       method: 'POST',
@@ -90,39 +91,109 @@ export default function ReportTable() {
     setEditingNote(null);
   }
 
-  // メモ編集をキャンセル
   function handleNoteCancel() {
     setEditingNote(null);
   }
 
-  // rowsにnoteを付与
-  const rowsWithNotes = rows.map((r) => ({
-    ...r,
-    note: notes[r.date] ?? '',
-  }));
+  // 総計計算
+  const total = rows.reduce(
+    (acc, r) => ({
+      cl: acc.cl + r.cl,
+      friend: acc.friend + r.friend,
+      cv: acc.cv + r.cv,
+    }),
+    { cl: 0, friend: 0, cv: 0 }
+  );
+
+  function renderTotalCell(colKey: string): string {
+    switch (colKey) {
+      case 'date': return '総計';
+      case 'cl': return total.cl.toLocaleString();
+      case 'friend': return total.friend.toLocaleString();
+      case 'friendRate': return total.cl > 0 ? ((total.friend / total.cl) * 100).toFixed(2) + '%' : '-';
+      case 'cv': return total.cv.toLocaleString();
+      case 'cvr': return total.friend > 0 ? ((total.cv / total.friend) * 100).toFixed(2) + '%' : '-';
+      case 'cpf': return '-';
+      case 'cpa': return '-';
+      case 'adCost': return '-';
+      default: return '-';
+    }
+  }
+
+  function renderNoteWithLink(note: string) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = note.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part) ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-[#7BB8D4] underline hover:text-[#5A9DBF]">
+          {part}
+        </a>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
+  }
 
   return (
     <div>
-      <FilterBar
-        {...filter}
-        columns={columns}
-        onToggleColumn={toggleColumn}
-      />
+      <FilterBar {...filter} columns={columns} onToggleColumn={toggleColumn} />
       {error ? (
         <p className="text-red-400">{error}</p>
       ) : loading ? (
         <Loading />
       ) : (
-        <ReportTableCore
-          viewMode={filter.viewMode}
-          filteredRows={rowsWithNotes}
-          visibleColumns={visibleColumns}
-          onNoteEdit={handleNoteEdit}
-          onNoteSave={handleNoteSave}
-          onNoteCancel={handleNoteCancel}
-          editingNote={editingNote}
-          canEdit={canEdit}
-        />
+        <div
+          className="overflow-x-auto overflow-y-auto rounded-xl border border-[#C8DCE8]"
+          style={{ maxHeight: 'calc(100vh - 150px)' }}
+        >
+          <table className="min-w-full border-collapse text-sm text-[#3A5A6A]">
+            <thead className="sticky top-0 z-10">
+              {/* ヘッダー行 */}
+              <tr className="bg-[#7BB8D4]">
+                {visibleColumns().map((col) => (
+                  <th
+                    key={col.key}
+                    className="px-4 py-3 text-left font-semibold whitespace-nowrap text-white bg-[#7BB8D4]"
+                    style={{ boxShadow: 'inset -1px 0 0 #5A9DBF' }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+              {/* 総計行 */}
+              <tr className="bg-[#D6E8F2] font-semibold" style={{ boxShadow: '0 2px 0 #C8DCE8' }}>
+                {visibleColumns().map((col) => (
+                  <td
+                    key={col.key}
+                    className={`px-4 py-2 bg-[#D6E8F2] ${col.key === 'date' ? 'whitespace-nowrap' : 'text-right'}`}
+                    style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}
+                  >
+                    {renderTotalCell(col.key)}
+                  </td>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.date} className="border-b border-[#EEF3F6] hover:bg-[#F5F8FA]">
+                  {visibleColumns().map((col) => (
+                    <td key={col.key} className="px-4 py-2 border-r border-[#EEF3F6] last:border-r-0">
+                      {col.key === 'date' ? (
+                        <span className="whitespace-nowrap">{row.date}</span>
+                      ) : col.key === 'friendRate' || col.key === 'cvr' ? (
+                        <span className="text-right block">{row[col.key as keyof typeof row] ?? '-'}</span>
+                      ) : col.key === 'cpf' || col.key === 'cpa' || col.key === 'adCost' ? (
+                        <span className="text-right block">-</span>
+                      ) : (
+                        <span className="text-right block">{Number(row[col.key as keyof typeof row] ?? 0).toLocaleString()}</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

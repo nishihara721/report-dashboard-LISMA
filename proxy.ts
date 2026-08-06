@@ -10,12 +10,9 @@ export const config = {
   matcher: [
     '/summary/:path*',
     '/period/:path*',
-    '/popup/:path*',
-    '/exit/:path*',
-    '/scenario/:path*',
-    '/appeal/:path*',
-    '/shared/:path*',
+    '/flow/:path*',
+    '/media/:path*',
+    '/code/:path*',
     '/admin/:path*',
-    // '/scenario-steps/:path*',
   ],
 };

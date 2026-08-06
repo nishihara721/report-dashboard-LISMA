@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getActiveSValuesFromDB } from '@/app/lib/db';
+import { getFlowValuesFromDB } from '@/app/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const data = await getActiveSValuesFromDB();
+    const data = await getFlowValuesFromDB();
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

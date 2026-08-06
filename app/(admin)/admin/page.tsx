@@ -14,20 +14,15 @@ type ClientUser = {
 };
 
 const ALL_PAGE_OPTIONS = [
-  { key: 'shared', label: '期間別（共有用）' },
   { key: 'summary', label: 'サマリ' },
   { key: 'period', label: '期間別' },
-  { key: 'popup', label: 'ポップアップ別' },
-  { key: 'scenario', label: 'シナリオ別' },
-  { key: 'exit', label: '離脱地点別' },
-  { key: 'appeal', label: '訴求別' },
+  { key: 'flow', label: 'フロー別' },
+  { key: 'media', label: 'メディア別' },
+  { key: 'code', label: 'コード別' },
 ];
 
-const showShared = process.env.NEXT_PUBLIC_ENABLE_SHARED_REPORT === 'true';
+const PAGE_OPTIONS = ALL_PAGE_OPTIONS;
 
-const PAGE_OPTIONS = ALL_PAGE_OPTIONS.filter((p) =>
-  p.key !== 'shared' || showShared
-);
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -41,10 +36,7 @@ export default function AdminPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const showShared = process.env.NEXT_PUBLIC_ENABLE_SHARED_REPORT === 'true';
-  const [selectedPages, setSelectedPages] = useState<string[]>(
-    showShared ? ['shared'] : ['period']
-  );
+  const [selectedPages, setSelectedPages] = useState<string[]>(['period']);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
