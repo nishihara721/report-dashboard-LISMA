@@ -1,6 +1,6 @@
-# レポートダッシュボード
+# レポートダッシュボード（L）
 
-LISMA engageのデータを集計・可視化するWebアプリです。
+LINEクリックログ・成果ログをデータソースとして、フロー別・メディア別・コード別にパフォーマンスデータを集計・可視化するWebアプリです。広告費の計算方式をメディアごとに設定できます。
 
 ---
 
@@ -22,10 +22,10 @@ LISMA engageのデータを集計・可視化するWebアプリです。
 ## データの流れ
 
 ```
-スプレッドシート
+スプレッドシート（クリックログ・成果ログ・広告費）
       ↓
 GAS（手動実行）
-      ↓
+      ↓ 広告費設定を取得して計算
 Next.js API（/api/sync）
       ↓
 Firebase Firestore
@@ -44,23 +44,23 @@ app/
 │   ├── login/page.tsx            # Googleログインページ
 │   ├── summary/page.tsx          # サマリページ
 │   ├── period/page.tsx           # 期間別ページ
-│   ├── popup/page.tsx            # ポップアップ別ページ
-│   ├── scenario/page.tsx         # シナリオ別ページ
-│   ├── exit/page.tsx             # 離脱地点別ページ
-│   ├── appeal/page.tsx           # 訴求別ページ
-│   ├── shared/page.tsx           # 期間別（共有用）ページ
+│   ├── flow/page.tsx             # フロー別ページ
+│   ├── media/page.tsx            # メディア別ページ
+│   ├── code/page.tsx             # コード別ページ
+│   ├── media-cost/               # 広告費設定
+│   │   ├── page.tsx              # 広告費設定一覧
+│   │   ├── new/page.tsx          # 広告費設定新規追加
+│   │   └── edit/[media]/page.tsx # 広告費設定編集
 │   └── admin/page.tsx            # ユーザー管理ページ
 │
 ├── client/                       # クライアント用
 │   ├── layout.tsx                # クライアント用レイアウト（権限別メニュー）
 │   ├── login/page.tsx            # クライアントログインページ
-│   ├── shared/page.tsx           # 期間別（共有用）
 │   ├── summary/page.tsx          # サマリ
 │   ├── period/page.tsx           # 期間別
-│   ├── popup/page.tsx            # ポップアップ別
-│   ├── scenario/page.tsx         # シナリオ別
-│   ├── exit/page.tsx             # 離脱地点別
-│   └── appeal/page.tsx           # 訴求別
+│   ├── flow/page.tsx             # フロー別
+│   ├── media/page.tsx            # メディア別
+│   └── code/page.tsx             # コード別
 │
 ├── api/                          # APIルート（サーバー側の処理）
 │   ├── auth/[...nextauth]/       # 管理者認証（Googleログイン）
@@ -72,45 +72,39 @@ app/
 │   │   └── users/                # クライアントユーザーCRUD
 │   │       └── [id]/             # ユーザー更新・削除
 │   ├── report/                   # 期間別レポートデータ
-│   ├── report-by-p/              # ポップアップ別レポートデータ
-│   ├── report-by-s/              # シナリオ別レポートデータ
-│   ├── report-by-exit/           # 離脱地点別レポートデータ
-│   ├── report-by-appeal/         # 訴求別レポートデータ
-│   ├── report-shared/            # 期間別（共有用）レポートデータ
-│   ├── summary/                  # サマリデータ（月別・p別・s別）
-│   ├── p-values/                 # ポップアップの選択肢一覧
-│   ├── p-values-active/          # 直近1週間のポップアップ一覧
-│   ├── s-values/                 # シナリオの選択肢一覧
-│   ├── s-values-active/          # 直近1週間のシナリオ一覧
-│   ├── exit-values/              # 離脱地点の選択肢一覧
-│   ├── appeal-values/            # 訴求の選択肢一覧
-│   ├── appeal-values-active/     # 直近1週間の訴求一覧
+│   ├── report-by-flow/           # フロー別レポートデータ
+│   ├── report-by-media/          # メディア別レポートデータ
+│   ├── report-by-code/           # コード別レポートデータ
+│   ├── summary/                  # サマリデータ（月別・フロー別・メディア別）
+│   ├── flow-values/              # フローの選択肢一覧
+│   ├── flow-values-active/       # 直近1週間のフロー一覧
+│   ├── media-values/             # メディアの選択肢一覧
+│   ├── media-values-active/      # 直近1週間のメディア一覧
+│   ├── code-values/              # コードの選択肢一覧
+│   ├── code-values-active/       # 直近1週間のコード一覧
+│   ├── media-cost-settings/      # 広告費設定の取得・保存・削除
 │   ├── notes/                    # メモの取得・保存
-│   ├── price-rules/              # 成果単価ルール（空配列を返す）
 │   └── sync/                     # GASからのデータ受け取り・Firestore保存
 │
 ├── components/                   # UIコンポーネント
 │   ├── NavBar.tsx                # サイドナビゲーション（PC）・下部ナビ（スマホ）
 │   ├── FilterBar.tsx             # 期間フィルター・日別月別切替・列切替
-│   ├── SelectorBar.tsx           # チェックボックス選択UI（p・s・離脱地点・訴求）
-│   ├── ReportTableCore.tsx       # テーブル本体（全ページ共通）
-│   ├── ColumnToggle.tsx          # 列の表示切替ボタン
-│   ├── Loading.tsx               # ローディングスピナー
-│   ├── SessionProviderWrapper.tsx # NextAuth SessionProviderのラッパー
+│   ├── SelectorBar.tsx           # チェックボックス選択UI（フロー・メディア・コード）
 │   ├── ReportTable.tsx           # 期間別ページのメインコンポーネント
-│   ├── SharedReportTable.tsx     # 期間別（共有用）ページのメインコンポーネント
-│   ├── PopupReport.tsx           # ポップアップ別ページのメインコンポーネント
-│   ├── ScenarioReport.tsx        # シナリオ別ページのメインコンポーネント
-│   ├── ExitReport.tsx            # 離脱地点別ページのメインコンポーネント
-│   ├── AppealReport.tsx          # 訴求別ページのメインコンポーネント
-│   └── SummaryTable.tsx          # サマリページのメインコンポーネント
+│   ├── FlowReport.tsx            # フロー別ページのメインコンポーネント
+│   ├── MediaReport.tsx           # メディア別ページのメインコンポーネント
+│   ├── CodeReport.tsx            # コード別ページのメインコンポーネント
+│   ├── SummaryTable.tsx          # サマリページのメインコンポーネント
+│   ├── RecalcModal.tsx           # 広告費再計算中ポップアップ
+│   ├── ColumnToggle.tsx          # 列の表示切替ボタン
+│   └── Loading.tsx               # ローディングスピナー
 │
 ├── hooks/                        # カスタムフック（状態管理）
 │   ├── useFilterBar.ts           # 期間フィルターの状態管理
 │   └── useColumnVisibility.ts    # 列の表示・非表示の状態管理
 │
 ├── lib/                          # サーバー側のロジック
-│   ├── db.ts                     # FirestoreからのDBデータ取得・集計
+│   ├── db.ts                     # FirestoreからのDBデータ取得・集計・広告費計算
 │   ├── firebase.ts               # Firebaseクライアントの設定
 │   ├── firebase-admin.ts         # Firebase Admin SDKの設定
 │   └── utils.ts                  # 共通の計算・変換関数
@@ -120,6 +114,7 @@ app/
 
 proxy.ts                          # 管理者ページの認証チェック
 apphosting.yaml                   # Firebase App Hostingの設定
+GAS.script                        # Google Apps Scriptのコード
 ```
 
 ---
@@ -127,121 +122,124 @@ apphosting.yaml                   # Firebase App Hostingの設定
 ## 各ファイルの役割
 
 ### `app/lib/db.ts`
-FirestoreからDBデータを取得・集計するメインロジックです。
-期間別・ポップアップ別・シナリオ別・離脱地点別・訴求別・共有用・サマリ・クライアントユーザー管理の各データを取得・操作します。
-
-### `app/lib/firebase.ts`
-Firebaseクライアントの初期化設定です。フロントエンド側で使用します。
-
-### `app/lib/firebase-admin.ts`
-Firebase Admin SDKの初期化設定です。サーバー側のAPI処理で使用します。環境変数 `FB_PROJECT_ID`・`FB_CLIENT_EMAIL`・`FB_PRIVATE_KEY` から認証情報を読み込みます。
-
-### `app/lib/utils.ts`
-アプリ全体で使い回す共通の計算・変換関数をまとめています。
+FirestoreからDBデータを取得・集計するメインロジックです。以下の関数を含みます：
 
 | 関数名 | 説明 |
 |---|---|
-| `calcRate` | 割合をパーセント文字列で返す |
-| `toYYYYMMDD` | 日付を `YYYY/MM/DD` 形式に変換 |
+| `getReportDataFromDB` | 期間別レポートデータを取得 |
+| `getReportDataByFlowFromDB` | フロー別レポートデータを取得 |
+| `getReportDataByMediaFromDB` | メディア別レポートデータを取得 |
+| `getReportDataByCodeFromDB` | コード別レポートデータを取得 |
+| `getSummaryDataFromDB` | サマリデータ（月別・フロー別・メディア別）を取得 |
+| `getFlowValuesFromDB` | フローの選択肢一覧を取得 |
+| `getMediaValuesFromDB` | メディアの選択肢一覧を取得 |
+| `getCodeValuesFromDB` | コードの選択肢一覧を取得 |
+| `getActiveFlowValuesFromDB` | 直近1週間のフロー一覧を取得 |
+| `getActiveMediaValuesFromDB` | 直近1週間のメディア一覧を取得 |
+| `getActiveCodeValuesFromDB` | 直近1週間のコード一覧を取得 |
+| `getMediaCostSettingsFromDB` | 広告費設定を取得 |
+| `upsertMediaCostSettingFromDB` | 広告費設定を保存 |
+| `deleteMediaCostSettingFromDB` | 広告費設定を削除 |
+| `recalcAdCostForMedia` | メディアの広告費を再計算してFirestoreに保存 |
+| `getNotesFromDB` | メモを取得 |
+| `upsertNoteFromDB` | メモを保存 |
+| `getClientUsers` | クライアントユーザー一覧を取得 |
+| `createClientUser` | クライアントユーザーを作成 |
+| `updateClientUser` | クライアントユーザーを更新 |
+| `deleteClientUser` | クライアントユーザーを削除 |
+| `getClientUserByUsername` | ユーザー名でクライアントユーザーを検索 |
 
-### `app/components/ReportTableCore.tsx`
-全ページで使用するテーブルの本体です。日別・月別の表示切替、総計行の表示、列の表示切替、メモの編集・URLリンク表示に対応しています。
+### `app/lib/firebase-admin.ts`
+Firebase Admin SDKの初期化設定です。環境変数 `FB_PROJECT_ID`・`FB_CLIENT_EMAIL`・`FB_PRIVATE_KEY` から認証情報を読み込みます。
 
-### `app/components/FilterBar.tsx`
-期間フィルター・日別月別切替・列切替をまとめたUIコンポーネントです。全レポートページで共通して使用しています。
-
-### `app/hooks/useFilterBar.ts`
-フィルターの状態（期間プリセット・日付範囲・表示モード）を管理するカスタムフックです。`apiDateRange` プロパティでAPIへのクエリパラメータを自動生成します。
-
-### `app/client/layout.tsx`
-クライアントユーザー専用のレイアウトです。ログイン状態の確認と、権限に応じたメニューの表示を管理します。
+### `GAS.script`
+スプレッドシートからデータを集計してFirestoreに同期するスクリプトです。広告費設定APIから設定を取得して広告費を計算してから送信します。
 
 ### `proxy.ts`
-未ログインの管理者ユーザーをログインページにリダイレクトします。クライアント用ページ（`/client/*`）は対象外で、独自認証で管理しています。
-
-### `apphosting.yaml`
-Firebase App Hostingの設定ファイルです。環境変数・シークレットの設定を管理します。
+未ログインの管理者ユーザーをログインページにリダイレクトします。クライアント用ページ（`/client/*`）は対象外です。
 
 ---
 
 ## Firestoreコレクション構成
 
-Firestoreはドキュメント指向のNoSQLデータベースです。以下のコレクションを使用しています。
-
-#### daily_reports（日次レポート）
-| フィールド名 | データ型 | 説明 |
+#### daily_reports_L（期間別）
+| フィールド | データ型 | 説明 |
 |---|---|---|
 | date | string | 日付（例: `2026-07-01`）※ドキュメントIDも同じ |
-| pv | number | PV数 |
-| imp | number | imp数 |
 | cl | number | CL数 |
 | friend | number | 友だち追加数 |
 | cv | number | CV数 |
-| billing | number | 請求額 |
+| calc_ad_cost | number | 計算済み広告費 |
+| cpf | number | CPF |
+| cpa_val | number | CPA |
 
-#### daily_reports_by_p（ポップアップ別）
-| フィールド名 | データ型 | 説明 |
+#### daily_reports_L_by_flow（フロー別）
+| フィールド | データ型 | 説明 |
 |---|---|---|
-| date | string | 日付 ※ドキュメントID: `{date}__{p_value}` |
-| p_value | string | ポップアップの識別値 |
-| pv | number | PV数 |
-| imp | number | imp数 |
+| date | string | 日付 ※ドキュメントID: `{date}__{flow}` |
+| flow | string | フロー名 |
 | cl | number | CL数 |
 | friend | number | 友だち追加数 |
 | cv | number | CV数 |
-| billing | number | 請求額 |
+| ad_cost | number | 消化金額 |
+| calc_ad_cost | number | 計算済み広告費 |
+| cpf | number | CPF |
+| cpa_val | number | CPA |
 
-#### daily_reports_by_s（シナリオ別）
-| フィールド名 | データ型 | 説明 |
+#### daily_reports_L_by_media（メディア別）
+| フィールド | データ型 | 説明 |
 |---|---|---|
-| date | string | 日付 ※ドキュメントID: `{date}__{s_value}` |
-| s_value | string | シナリオの識別値 |
-| pv | number | PV数 |
-| imp | number | imp数 |
+| date | string | 日付 ※ドキュメントID: `{date}__{media}` |
+| media | string | メディア名 |
 | cl | number | CL数 |
 | friend | number | 友だち追加数 |
 | cv | number | CV数 |
-| billing | number | 請求額 |
+| ad_cost | number | 消化金額 |
+| calc_ad_cost | number | 計算済み広告費 |
+| cpf | number | CPF |
+| cpa_val | number | CPA |
 
-#### daily_reports_by_exit（離脱地点別）
-| フィールド名 | データ型 | 説明 |
+#### daily_reports_L_by_code（コード別）
+| フィールド | データ型 | 説明 |
 |---|---|---|
-| date | string | 日付 ※ドキュメントID: `{date}__{exit_value}` |
-| exit_value | string | 離脱地点の識別値 |
-| pv | number | PV数 |
-| imp | number | imp数 |
-| cl | number | CL数 |
-| friend | number | 友だち追加数 |
-
-#### daily_reports_by_appeal（訴求別）
-| フィールド名 | データ型 | 説明 |
-|---|---|---|
-| date | string | 日付 ※ドキュメントID: `{date}__{appeal_value}` |
-| appeal_value | string | 訴求の識別値 |
-| pv | number | PV数 |
-| imp | number | imp数 |
+| date | string | 日付 ※ドキュメントID: `{date}__{flow}__{media}__{media_no}` |
+| flow | string | フロー名 |
+| media | string | メディア名 |
+| media_no | string | 本数 |
 | cl | number | CL数 |
 | friend | number | 友だち追加数 |
 | cv | number | CV数 |
-| billing | number | 請求額 |
+| ad_cost | number | 消化金額 |
+| calc_ad_cost | number | 計算済み広告費 |
+| cpf | number | CPF |
+| cpa_val | number | CPA |
 
-#### daily_reports_shared（期間別共有用）
-| フィールド名 | データ型 | 説明 |
+#### distinct_flow_values / distinct_media_values / distinct_code_values
+各値のユニーク一覧。ドキュメントIDが値そのもの。
+
+#### media_cost_settings（広告費設定）
+| フィールド | データ型 | 説明 |
 |---|---|---|
-| date | string | 日付 ※ドキュメントIDも同じ |
-| cv | number | CV数 |
-| unit_price | number | 成果単価 |
-| billing | number | 請求額 |
+| updated_at | string | 更新日時 |
+
+サブコレクション `rules`：
+| フィールド | データ型 | 説明 |
+|---|---|---|
+| from_date | string | 適用開始日 ※ドキュメントIDも同じ |
+| type | string | 計算方式（`budget`・`affi_cpf`・`affi_cpa`・`budget_cpa`） |
+| rate | number | 上乗せ割合（`budget`・`budget_cpa`の場合） |
+| cpf | number | 友だち追加単価（`affi_cpf`の場合） |
+| cpa | number | 成果単価（`affi_cpa`・`budget_cpa`の場合） |
 
 #### daily_notes（メモ）
-| フィールド名 | データ型 | 説明 |
+| フィールド | データ型 | 説明 |
 |---|---|---|
 | date | string | 日付 ※ドキュメントIDも同じ |
 | note | string | メモ内容 |
 | updated_at | string | 更新日時 |
 
 #### client_users（クライアントユーザー）
-| フィールド名 | データ型 | 説明 |
+| フィールド | データ型 | 説明 |
 |---|---|---|
 | username | string | ログインID |
 | password_hash | string | パスワード（bcryptハッシュ） |
@@ -251,50 +249,47 @@ Firestoreはドキュメント指向のNoSQLデータベースです。以下の
 | created_at | string | 作成日時 |
 | updated_at | string | 更新日時 |
 
-#### distinct_p_values / distinct_s_values / distinct_exit_values / distinct_appeal_values
-各値のユニーク一覧。ドキュメントIDが値そのもの。
-
-#### summary_by_p / summary_by_s
-p別・s別のサマリ集計データ。ドキュメントIDが値そのもの。
-
----
-
-## Firestoreの複合インデックス
-
-以下のコレクションで複合インデックスが必要です（初回アクセス時にエラーメッセージ内のURLから作成）：
-
-| コレクション | フィールド1 | フィールド2 |
-|---|---|---|
-| `daily_reports_by_p` | `p_value` 昇順 | `date` 昇順 |
-| `daily_reports_by_s` | `s_value` 昇順 | `date` 昇順 |
-| `daily_reports_by_exit` | `exit_value` 昇順 | `date` 昇順 |
-| `daily_reports_by_appeal` | `appeal_value` 昇順 | `date` 昇順 |
-
 ---
 
 ## 集計ロジック
 
 ```
-PV数          = 【データ】セッション数の「合計」列
-訴求別PV数    = 【データ】セッション数の訴求名列
-imp数         = 【データ】フリップデスクの「自動ポップアップ表示回数」列
-CL数          = flipdesk: フリップデスクの「ポップアップ内のクリック数」
-                clicklog: クリックログの「LINE追加」件数
-友だち追加数   = 【データ】友だちデータの行数カウント
-CV数          = 【データ】成果ログの行数カウント
+CL数 = クリックログの「LINE追加」かつ「中間ページ」が「中間なし」以外
+      + 成果ログの「ボタンクリック」
 
-請求額        = 【データ】成果ログの「成果単価」列の合計
-成果単価      = 請求額 ÷ CV数
+友だち追加数 = 成果ログの「LINE追加」
 
-imp率         = imp数 ÷ PV数
-CTR           = CL数 ÷ imp数
-友だち追加率   = 友だち追加数 ÷ CL数
-CVR           = CV数 ÷ 友だち追加数
+CV数 = 成果ログの「CV」
 
-期間別(共有用)
-  CV数        = 【データ】基幹数値のB列
-  成果単価     = 【データ】基幹数値のC列
-  請求額      = 【データ】基幹数値のD列
+広告費（budget）     = 消化金額 × 上乗せ割合
+広告費（affi_cpf）  = 友だち追加単価 × 友だち追加数
+広告費（affi_cpa）  = 成果単価 × CV数
+広告費（budget_cpa）= 消化金額 × 割合 + 成果単価 × CV数
+
+CPF = 広告費 ÷ 友だち追加数
+CPA = 広告費 ÷ CV数
+友だち追加率 = 友だち追加数 ÷ CL数
+CVR = CV数 ÷ 友だち追加数
+
+コード = フロー × 流入元メディア × 流入元本数
+```
+
+---
+
+## 広告費の計算フロー
+
+```
+① 管理画面（/media-cost）でメディアごとの計算方式を設定
+        ↓
+② GAS実行時に /api/media-cost-settings から設定を取得
+        ↓
+③ コード別・メディア別・フロー別・期間別に広告費を計算
+        ↓
+④ calc_ad_cost・cpf・cpa_val をFirestoreに保存
+        ↓
+⑤ レポート表示時は保存済みの値をそのまま表示
+
+※ 広告費設定を変更した場合は自動的に再計算されてFirestoreに保存される
 ```
 
 ---
@@ -303,18 +298,15 @@ CVR           = CV数 ÷ 友だち追加数
 
 | シート名 | 用途 |
 |---|---|
-| 【データ】セッション数 | PV数・訴求別PV数（ヘッダーが4行目） |
-| 【データ】フリップデスク | imp数・CL数（`CL_SOURCE=flipdesk` の場合） |
-| 【データ】友だちデータ | 友だち追加数 |
-| 【データ】成果ログ | CV数・成果単価 |
-| 【データ】クリックログ | CL数（`CL_SOURCE=clicklog` の場合） |
-| 【データ】基幹数値 | 期間別（共有用）のCV数・成果単価・請求額 |
+| クリックログ | CL数（LINE追加かつ中間ページあり）・ボタンクリック |
+| 成果ログ | CL数（ボタンクリック）・友だち追加数・CV数 |
+| 広告費 | メディア・フロー・本数ごとの消化金額 |
 
 ---
 
 ## 環境変数
 
-`.env.local` に以下を設定してください（ローカル開発用）。
+`.env.local` に以下を設定してください（ローカル開発用）：
 
 ```env
 # Firebase クライアント設定
@@ -338,18 +330,7 @@ GOOGLE_CLIENT_SECRET=OAuthクライアントシークレット
 
 # GASとの認証用シークレット
 SYNC_SECRET=任意のランダムな文字列
-
-# Google Sheets API（サマリ用）
-GOOGLE_SHEETS_ID=スプレッドシートのID
-GOOGLE_SERVICE_ACCOUNT_EMAIL=サービスアカウントのメールアドレス
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# 期間別（共有用）ページの表示/非表示（省略時は非表示）
-# NEXT_PUBLIC_ 変数はビルド時に埋め込まれるため、変更後は再デプロイが必要
-NEXT_PUBLIC_ENABLE_SHARED_REPORT=true
 ```
-
-本番環境（Firebase App Hosting）では `apphosting.yaml` でシークレットを管理します。
 
 ---
 
@@ -360,7 +341,7 @@ NEXT_PUBLIC_ENABLE_SHARED_REPORT=true
 | 管理者ログイン | Googleアカウント（NextAuth） |
 | レポート閲覧（管理者） | ログイン必須 |
 | メモの編集 | `@5s-inc.jp` ドメインのアカウントのみ |
-| ユーザー管理画面 | `@5s-inc.jp` ドメインのアカウントのみ |
+| ユーザー管理・広告費設定 | `@5s-inc.jp` ドメインのアカウントのみ |
 | クライアントログイン | ID・パスワード（Cookie認証） |
 | クライアントのページ閲覧 | 管理者が付与した権限のページのみ |
 
