@@ -266,16 +266,18 @@ export async function getClientUserByUsername(username: string) {
 // サマリ用：月別集計をDBから取得する関数
 // ==========================================
 export async function getSummaryDataFromDB() {
-  const snapshot = await adminDb
-    .collection('daily_reports_L')
-    .orderBy('date', 'asc')
-    .get();
+  const [dailySnapshot, flowSnapshot, mediaSnapshot] = await Promise.all([
+    adminDb.collection('daily_reports_L').orderBy('date', 'asc').get(),
+    adminDb.collection('daily_reports_L_by_flow').get(),
+    adminDb.collection('daily_reports_L_by_media').get(),
+  ]);
 
+  // 月別集計
   const monthMap: Record<string, {
     cl: number; friend: number; cv: number; adCost: number;
   }> = {};
 
-  snapshot.docs.forEach((doc) => {
+  dailySnapshot.docs.forEach((doc) => {
     const d = doc.data();
     const month = d.date.slice(0, 7);
     if (!monthMap[month]) monthMap[month] = { cl: 0, friend: 0, cv: 0, adCost: 0 };
@@ -285,6 +287,37 @@ export async function getSummaryDataFromDB() {
     monthMap[month].adCost += d.calc_ad_cost ?? 0;
   });
 
+  // フロー別集計
+  const flowMap: Record<string, {
+    cl: number; friend: number; cv: number; adCost: number;
+  }> = {};
+
+  flowSnapshot.docs.forEach((doc) => {
+    const d = doc.data();
+    const flow = d.flow;
+    if (!flowMap[flow]) flowMap[flow] = { cl: 0, friend: 0, cv: 0, adCost: 0 };
+    flowMap[flow].cl += d.cl;
+    flowMap[flow].friend += d.friend;
+    flowMap[flow].cv += d.cv;
+    flowMap[flow].adCost += d.calc_ad_cost ?? 0;
+  });
+
+  // メディア別集計
+  const mediaMap: Record<string, {
+    cl: number; friend: number; cv: number; adCost: number;
+  }> = {};
+
+  mediaSnapshot.docs.forEach((doc) => {
+    const d = doc.data();
+    const media = d.media;
+    if (!mediaMap[media]) mediaMap[media] = { cl: 0, friend: 0, cv: 0, adCost: 0 };
+    mediaMap[media].cl += d.cl;
+    mediaMap[media].friend += d.friend;
+    mediaMap[media].cv += d.cv;
+    mediaMap[media].adCost += d.calc_ad_cost ?? 0;
+  });
+
+  // 月別の出力
   const byMonth = Object.entries(monthMap)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, d]) => ({
@@ -299,7 +332,37 @@ export async function getSummaryDataFromDB() {
       cpa: d.cv > 0 && d.adCost > 0 ? Math.round(d.adCost / d.cv) : 0,
     }));
 
-  return { byMonth };
+  // フロー別の出力
+  const byFlow = Object.entries(flowMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([flow, d]) => ({
+      label: flow,
+      cl: d.cl,
+      friend: d.friend,
+      friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
+      cv: d.cv,
+      cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      adCost: d.adCost,
+      cpf: d.friend > 0 && d.adCost > 0 ? Math.round(d.adCost / d.friend) : 0,
+      cpa: d.cv > 0 && d.adCost > 0 ? Math.round(d.adCost / d.cv) : 0,
+    }));
+
+  // メディア別の出力
+  const byMedia = Object.entries(mediaMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([media, d]) => ({
+      label: media,
+      cl: d.cl,
+      friend: d.friend,
+      friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
+      cv: d.cv,
+      cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      adCost: d.adCost,
+      cpf: d.friend > 0 && d.adCost > 0 ? Math.round(d.adCost / d.friend) : 0,
+      cpa: d.cv > 0 && d.adCost > 0 ? Math.round(d.adCost / d.cv) : 0,
+    }));
+
+  return { byMonth, byFlow, byMedia };
 }
 
 // ==========================================
@@ -517,4 +580,60 @@ export async function recalcAdCostForMedia(media: string) {
   }
 
   await batch.commit();
+}
+
+// ==========================================
+// 直近1週間にデータがあるフロー一覧をDBから取得する関数
+// ==========================================
+export async function getActiveFlowValuesFromDB(): Promise<string[]> {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const fromDate = oneWeekAgo.toISOString().slice(0, 10);
+
+  const snapshot = await adminDb
+    .collection('daily_reports_L_by_flow')
+    .where('date', '>=', fromDate)
+    .get();
+
+  const values = new Set<string>(snapshot.docs.map((doc) => doc.data().flow));
+  return [...values].sort();
+}
+
+// ==========================================
+// 直近1週間にデータがあるメディア一覧をDBから取得する関数
+// ==========================================
+export async function getActiveMediaValuesFromDB(): Promise<string[]> {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const fromDate = oneWeekAgo.toISOString().slice(0, 10);
+
+  const snapshot = await adminDb
+    .collection('daily_reports_L_by_media')
+    .where('date', '>=', fromDate)
+    .get();
+
+  const values = new Set<string>(snapshot.docs.map((doc) => doc.data().media));
+  return [...values].sort();
+}
+
+// ==========================================
+// 直近1週間にデータがあるコード一覧をDBから取得する関数
+// ==========================================
+export async function getActiveCodeValuesFromDB(): Promise<string[]> {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const fromDate = oneWeekAgo.toISOString().slice(0, 10);
+
+  const snapshot = await adminDb
+    .collection('daily_reports_L_by_code')
+    .where('date', '>=', fromDate)
+    .get();
+
+  const values = new Set<string>(
+    snapshot.docs.map((doc) => {
+      const d = doc.data();
+      return `${d.flow}__${d.media}__${d.media_no}`;
+    })
+  );
+  return [...values].sort();
 }

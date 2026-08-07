@@ -170,12 +170,14 @@ export default function CodeReport() {
 
   useEffect(() => {
     Promise.resolve().then(() => { setMounted(true); setValuesLoading(true); });
-    fetch('/api/code-values')
-      .then((res) => res.json())
-      .then((data) => {
-        setCodeValues(Array.isArray(data) ? data : []);
-        setValuesLoading(false);
-      });
+    Promise.all([
+      fetch('/api/code-values').then((res) => res.json()),
+      fetch('/api/code-values-active').then((res) => res.json()),
+    ]).then(([codeData, activeData]) => {
+      setCodeValues(Array.isArray(codeData) ? codeData : []);
+      setSelectedCode(Array.isArray(activeData) ? activeData : []);
+      setValuesLoading(false);
+    });
   }, []);
 
   if (!mounted) return null;

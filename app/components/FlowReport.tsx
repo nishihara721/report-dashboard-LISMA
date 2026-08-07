@@ -168,12 +168,14 @@ export default function FlowReport() {
 
   useEffect(() => {
     Promise.resolve().then(() => { setMounted(true); setValuesLoading(true); });
-    fetch('/api/flow-values')
-      .then((res) => res.json())
-      .then((data) => {
-        setFlowValues(Array.isArray(data) ? data : []);
-        setValuesLoading(false);
-      });
+    Promise.all([
+      fetch('/api/flow-values').then((res) => res.json()),
+      fetch('/api/flow-values-active').then((res) => res.json()),
+    ]).then(([flowData, activeData]) => {
+      setFlowValues(Array.isArray(flowData) ? flowData : []);
+      setSelectedFlow(Array.isArray(activeData) ? activeData : []);
+      setValuesLoading(false);
+    });
   }, []);
 
   if (!mounted) return null;

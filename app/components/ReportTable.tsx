@@ -98,6 +98,22 @@ export default function ReportTable() {
     setEditingNote(null);
   }
 
+  // 月別集計
+  const monthlyRows = (() => {
+    const map: Record<string, {
+      cl: number; friend: number; cv: number; adCost: number;
+    }> = {};
+    for (const r of rows) {
+      const month = r.date.slice(0, 7);
+      if (!map[month]) map[month] = { cl: 0, friend: 0, cv: 0, adCost: 0 };
+      map[month].cl += r.cl;
+      map[month].friend += r.friend;
+      map[month].cv += r.cv;
+      map[month].adCost += r.adCost ?? 0;
+    }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  })();
+
   // 総計計算
   const total = rows.reduce(
     (acc, r) => ({
@@ -178,33 +194,63 @@ export default function ReportTable() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.date} className="border-b border-[#EEF3F6] hover:bg-[#F5F8FA]">
-                  {visibleColumns().map((col) => (
-                    <td key={col.key} className="px-4 py-2 border-r border-[#EEF3F6] last:border-r-0">
-                      {col.key === 'date' ? (
-                        <span className="whitespace-nowrap">{row.date}</span>
-                      ) : col.key === 'friendRate' || col.key === 'cvr' ? (
-                        <span className="text-right block">{row[col.key as keyof typeof row] ?? '-'}</span>
-                      ) : col.key === 'adCost' ? (
-                        <span className="text-right block">
-                          {row.adCost !== undefined && row.adCost > 0 ? `¥${row.adCost.toLocaleString()}` : '-'}
-                        </span>
-                      ) : col.key === 'cpf' ? (
-                        <span className="text-right block">
-                          {row.cpf !== undefined && row.cpf > 0 ? `¥${row.cpf.toLocaleString()}` : '-'}
-                        </span>
-                      ) : col.key === 'cpa' ? (
-                        <span className="text-right block">
-                          {row.cpa !== undefined && row.cpa > 0 ? `¥${row.cpa.toLocaleString()}` : '-'}
-                        </span>
-                      ) : (
-                        <span className="text-right block">{Number(row[col.key as keyof typeof row] ?? 0).toLocaleString()}</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {filter.viewMode === 'daily' ? (
+                rows.map((row) => (
+                  <tr key={row.date} className="border-b border-[#EEF3F6] hover:bg-[#F5F8FA]">
+                    {visibleColumns().map((col) => (
+                      <td key={col.key} className="px-4 py-2 border-r border-[#EEF3F6] last:border-r-0">
+                        {col.key === 'date' ? (
+                          <span className="whitespace-nowrap">{row.date}</span>
+                        ) : col.key === 'friendRate' || col.key === 'cvr' ? (
+                          <span className="text-right block">{row[col.key as keyof typeof row] ?? '-'}</span>
+                        ) : col.key === 'adCost' ? (
+                          <span className="text-right block">
+                            {row.adCost !== undefined && row.adCost > 0 ? `¥${row.adCost.toLocaleString()}` : '-'}
+                          </span>
+                        ) : col.key === 'cpf' ? (
+                          <span className="text-right block">
+                            {row.cpf !== undefined && row.cpf > 0 ? `¥${row.cpf.toLocaleString()}` : '-'}
+                          </span>
+                        ) : col.key === 'cpa' ? (
+                          <span className="text-right block">
+                            {row.cpa !== undefined && row.cpa > 0 ? `¥${row.cpa.toLocaleString()}` : '-'}
+                          </span>
+                        ) : (
+                          <span className="text-right block">{Number(row[col.key as keyof typeof row] ?? 0).toLocaleString()}</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                monthlyRows.map(([month, d]) => (
+                  <tr key={month} className="border-b border-[#EEF3F6] hover:bg-[#F5F8FA]">
+                    {visibleColumns().map((col) => (
+                      <td key={col.key} className="px-4 py-2 text-right border-r border-[#EEF3F6] last:border-r-0">
+                        {col.key === 'date' ? (
+                          <span className="whitespace-nowrap">{month}</span>
+                        ) : col.key === 'cl' ? (
+                          d.cl.toLocaleString()
+                        ) : col.key === 'friend' ? (
+                          d.friend.toLocaleString()
+                        ) : col.key === 'friendRate' ? (
+                          d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-'
+                        ) : col.key === 'cv' ? (
+                          d.cv.toLocaleString()
+                        ) : col.key === 'cvr' ? (
+                          d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-'
+                        ) : col.key === 'adCost' ? (
+                          d.adCost > 0 ? `¥${d.adCost.toLocaleString()}` : '-'
+                        ) : col.key === 'cpf' ? (
+                          d.friend > 0 && d.adCost > 0 ? `¥${Math.round(d.adCost / d.friend).toLocaleString()}` : '-'
+                        ) : col.key === 'cpa' ? (
+                          d.cv > 0 && d.adCost > 0 ? `¥${Math.round(d.adCost / d.cv).toLocaleString()}` : '-'
+                        ) : '-'}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

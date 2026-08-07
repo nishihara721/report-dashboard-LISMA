@@ -166,12 +166,14 @@ export default function MediaReport() {
 
   useEffect(() => {
     Promise.resolve().then(() => { setMounted(true); setValuesLoading(true); });
-    fetch('/api/media-values')
-      .then((res) => res.json())
-      .then((data) => {
-        setMediaValues(Array.isArray(data) ? data : []);
-        setValuesLoading(false);
-      });
+    Promise.all([
+      fetch('/api/media-values').then((res) => res.json()),
+      fetch('/api/media-values-active').then((res) => res.json()),
+    ]).then(([mediaData, activeData]) => {
+      setMediaValues(Array.isArray(mediaData) ? mediaData : []);
+      setSelectedMedia(Array.isArray(activeData) ? activeData : []);
+      setValuesLoading(false);
+    });
   }, []);
 
   if (!mounted) return null;
