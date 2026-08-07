@@ -71,8 +71,13 @@ function FlowTableWrapper({
 
   // 総計
   const total = rows.reduce(
-    (acc, r) => ({ cl: acc.cl + r.cl, friend: acc.friend + r.friend, cv: acc.cv + r.cv }),
-    { cl: 0, friend: 0, cv: 0 }
+    (acc, r) => ({
+      cl: acc.cl + r.cl,
+      friend: acc.friend + r.friend,
+      cv: acc.cv + r.cv,
+      adCost: acc.adCost + (r.adCost ?? 0),
+    }),
+    { cl: 0, friend: 0, cv: 0, adCost: 0 }
   );
 
   const displayRows: DailyRow[] = viewMode === 'daily' ? rows : monthlyRows.map(([month, d]) => ({
@@ -109,6 +114,9 @@ function FlowTableWrapper({
                     : col.key === 'friendRate' ? (total.cl > 0 ? ((total.friend / total.cl) * 100).toFixed(2) + '%' : '-')
                     : col.key === 'cv' ? total.cv.toLocaleString()
                     : col.key === 'cvr' ? (total.friend > 0 ? ((total.cv / total.friend) * 100).toFixed(2) + '%' : '-')
+                    : col.key === 'adCost' ? (total.adCost > 0 ? `¥${total.adCost.toLocaleString()}` : '-')
+                    : col.key === 'cpf' ? (total.friend > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.friend).toLocaleString()}` : '-')
+                    : col.key === 'cpa' ? (total.cv > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.cv).toLocaleString()}` : '-')
                     : '-'}
                 </td>
               ))}

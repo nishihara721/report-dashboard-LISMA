@@ -14,6 +14,9 @@ type DailyRow = {
   friendRate: string;
   cv: number;
   cvr: string;
+  adCost?: number;
+  cpf?: number;
+  cpa?: number;
 };
 
 const COLUMNS = [
@@ -101,8 +104,9 @@ export default function ReportTable() {
       cl: acc.cl + r.cl,
       friend: acc.friend + r.friend,
       cv: acc.cv + r.cv,
+      adCost: acc.adCost + (r.adCost ?? 0),
     }),
-    { cl: 0, friend: 0, cv: 0 }
+    { cl: 0, friend: 0, cv: 0, adCost: 0 }
   );
 
   function renderTotalCell(colKey: string): string {
@@ -113,9 +117,9 @@ export default function ReportTable() {
       case 'friendRate': return total.cl > 0 ? ((total.friend / total.cl) * 100).toFixed(2) + '%' : '-';
       case 'cv': return total.cv.toLocaleString();
       case 'cvr': return total.friend > 0 ? ((total.cv / total.friend) * 100).toFixed(2) + '%' : '-';
-      case 'cpf': return '-';
-      case 'cpa': return '-';
-      case 'adCost': return '-';
+      case 'adCost': return total.adCost > 0 ? `¥${total.adCost.toLocaleString()}` : '-';
+      case 'cpf': return total.friend > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.friend).toLocaleString()}` : '-';
+      case 'cpa': return total.cv > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.cv).toLocaleString()}` : '-';
       default: return '-';
     }
   }
@@ -182,8 +186,18 @@ export default function ReportTable() {
                         <span className="whitespace-nowrap">{row.date}</span>
                       ) : col.key === 'friendRate' || col.key === 'cvr' ? (
                         <span className="text-right block">{row[col.key as keyof typeof row] ?? '-'}</span>
-                      ) : col.key === 'cpf' || col.key === 'cpa' || col.key === 'adCost' ? (
-                        <span className="text-right block">-</span>
+                      ) : col.key === 'adCost' ? (
+                        <span className="text-right block">
+                          {row.adCost !== undefined && row.adCost > 0 ? `¥${row.adCost.toLocaleString()}` : '-'}
+                        </span>
+                      ) : col.key === 'cpf' ? (
+                        <span className="text-right block">
+                          {row.cpf !== undefined && row.cpf > 0 ? `¥${row.cpf.toLocaleString()}` : '-'}
+                        </span>
+                      ) : col.key === 'cpa' ? (
+                        <span className="text-right block">
+                          {row.cpa !== undefined && row.cpa > 0 ? `¥${row.cpa.toLocaleString()}` : '-'}
+                        </span>
                       ) : (
                         <span className="text-right block">{Number(row[col.key as keyof typeof row] ?? 0).toLocaleString()}</span>
                       )}

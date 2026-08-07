@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Loading from '../../../components/Loading';
+import RecalcModal from '../../../components/RecalcModal';
 
 type Rule = {
   from_date: string;
@@ -30,6 +31,7 @@ export default function MediaCostNewPage() {
   });
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [recalcStatus, setRecalcStatus] = useState<'calculating' | 'done' | null>(null);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -56,13 +58,20 @@ export default function MediaCostNewPage() {
   async function handleSave() {
     if (!media.trim()) return;
     setSaving(true);
+    setRecalcStatus('calculating');
+
     await fetch('/api/media-cost-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ media: media.trim(), ...rule }),
     });
+
     setSaving(false);
-    router.push('/media-cost');
+    setRecalcStatus('done');
+    setTimeout(() => {
+      setRecalcStatus(null);
+      router.push('/media-cost');
+    }, 2000);
   }
 
   return (
@@ -73,6 +82,8 @@ export default function MediaCostNewPage() {
           ← 一覧に戻る
         </Link>
       </div>
+
+      <RecalcModal status={recalcStatus} />
 
       <div className="bg-white rounded-xl border border-[#C8DCE8] p-6">
         <div className="flex flex-col gap-4">
@@ -133,7 +144,7 @@ export default function MediaCostNewPage() {
               <label className="text-sm font-medium text-[#3A5A6A] block mb-1">友だち追加単価（円）</label>
               <input
                 type="number"
-                value={rule.cpf ?? 0}
+                value={rule.cpf ?? '0'}
                 onChange={(e) => updateRule('cpf', parseInt(e.target.value))}
                 className="w-full border border-[#C8DCE8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#7BB8D4]"
               />
@@ -146,7 +157,7 @@ export default function MediaCostNewPage() {
               <label className="text-sm font-medium text-[#3A5A6A] block mb-1">成果単価（円）</label>
               <input
                 type="number"
-                value={rule.cpa ?? 0}
+                value={rule.cpa ?? '0'}
                 onChange={(e) => updateRule('cpa', parseInt(e.target.value))}
                 className="w-full border border-[#C8DCE8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#7BB8D4]"
               />

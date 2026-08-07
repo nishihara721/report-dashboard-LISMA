@@ -10,7 +10,7 @@ export async function getReportDataFromDB(from?: string, to?: string) {
     .get();
 
   const docs = snapshot.docs.map((doc) => doc.data() as {
-    date: string; cl: number; friend: number; cv: number;
+    date: string; cl: number; friend: number; cv: number; calc_ad_cost?: number;
   });
 
   return docs
@@ -26,6 +26,9 @@ export async function getReportDataFromDB(from?: string, to?: string) {
       friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      adCost: d.calc_ad_cost ?? 0,
+      cpf: d.friend > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.friend) : 0,
+      cpa: d.cv > 0 && d.calc_ad_cost ? Math.round(d.calc_ad_cost / d.cv) : 0,
     }));
 }
 
@@ -269,16 +272,17 @@ export async function getSummaryDataFromDB() {
     .get();
 
   const monthMap: Record<string, {
-    cl: number; friend: number; cv: number;
+    cl: number; friend: number; cv: number; adCost: number;
   }> = {};
 
   snapshot.docs.forEach((doc) => {
     const d = doc.data();
     const month = d.date.slice(0, 7);
-    if (!monthMap[month]) monthMap[month] = { cl: 0, friend: 0, cv: 0 };
+    if (!monthMap[month]) monthMap[month] = { cl: 0, friend: 0, cv: 0, adCost: 0 };
     monthMap[month].cl += d.cl;
     monthMap[month].friend += d.friend;
     monthMap[month].cv += d.cv;
+    monthMap[month].adCost += d.calc_ad_cost ?? 0;
   });
 
   const byMonth = Object.entries(monthMap)
@@ -290,6 +294,9 @@ export async function getSummaryDataFromDB() {
       friendRate: d.cl > 0 ? ((d.friend / d.cl) * 100).toFixed(2) + '%' : '-',
       cv: d.cv,
       cvr: d.friend > 0 ? ((d.cv / d.friend) * 100).toFixed(2) + '%' : '-',
+      adCost: d.adCost,
+      cpf: d.friend > 0 && d.adCost > 0 ? Math.round(d.adCost / d.friend) : 0,
+      cpa: d.cv > 0 && d.adCost > 0 ? Math.round(d.adCost / d.cv) : 0,
     }));
 
   return { byMonth };
@@ -411,4 +418,103 @@ export function calcAdCost(
     default:
       return 0;
   }
+}
+
+// ==========================================
+// メディア別広告費を再計算してDBに保存する関数
+// ==========================================
+export async function recalcAdCostForMedia(media: string) {
+  const allSettings = await getMediaCostSettingsFromDB();
+  const rules = allSettings[media];
+  if (!rules || rules.length === 0) return;
+
+  const codeSnapshot = await adminDb
+    .collection('daily_reports_L_by_code')
+    .where('media', '==', media)
+    .get();
+
+  // 日付ごとの合計を集計
+  const dateAdCostMap: Record<string, number> = {};
+  const flowAdCostMap: Record<string, number> = {};
+  const mediaAdCostMap: Record<string, number> = {};
+
+  const batch = adminDb.batch();
+
+  for (const doc of codeSnapshot.docs) {
+    const d = doc.data();
+
+    const sorted = [...rules].sort((a, b) => b.from_date.localeCompare(a.from_date));
+    const rule = sorted.find((r) => r.from_date <= d.date);
+    if (!rule) continue;
+
+    let calcAdCost = 0;
+    switch (rule.type) {
+      case 'budget':
+        calcAdCost = Math.round((d.ad_cost ?? 0) * (rule.rate ?? 1));
+        break;
+      case 'affi_cpf':
+        calcAdCost = Math.round((rule.cpf ?? 0) * (d.friend ?? 0));
+        break;
+      case 'affi_cpa':
+        calcAdCost = Math.round((rule.cpa ?? 0) * (d.cv ?? 0));
+        break;
+      case 'budget_cpa':
+        calcAdCost = Math.round((d.ad_cost ?? 0) * (rule.rate ?? 1) + (rule.cpa ?? 0) * (d.cv ?? 0));
+        break;
+    }
+
+    const cpf = d.friend > 0 ? Math.round(calcAdCost / d.friend) : 0;
+    const cpaVal = d.cv > 0 ? Math.round(calcAdCost / d.cv) : 0;
+
+    // コード別を更新
+    batch.update(doc.ref, { calc_ad_cost: calcAdCost, cpf, cpa_val: cpaVal });
+
+    // 日付・フロー・メディアごとに集計
+    dateAdCostMap[d.date] = (dateAdCostMap[d.date] ?? 0) + calcAdCost;
+    const flowKey = `${d.date}__${d.flow}`;
+    flowAdCostMap[flowKey] = (flowAdCostMap[flowKey] ?? 0) + calcAdCost;
+    const mediaKey = `${d.date}__${media}`;
+    mediaAdCostMap[mediaKey] = (mediaAdCostMap[mediaKey] ?? 0) + calcAdCost;
+  }
+
+  // 期間別を更新
+  for (const [date, adCost] of Object.entries(dateAdCostMap)) {
+    const dateRef = adminDb.collection('daily_reports_L').doc(date);
+    const dateDoc = await dateRef.get();
+    const friend = dateDoc.data()?.friend ?? 0;
+    const cv = dateDoc.data()?.cv ?? 0;
+    batch.set(dateRef, {
+      calc_ad_cost: adCost,
+      cpf: friend > 0 ? Math.round(adCost / friend) : 0,
+      cpa_val: cv > 0 ? Math.round(adCost / cv) : 0,
+    }, { merge: true });
+  }
+
+  // メディア別を更新
+  for (const [key, adCost] of Object.entries(mediaAdCostMap)) {
+    const mediaRef = adminDb.collection('daily_reports_L_by_media').doc(key);
+    const mediaDoc = await mediaRef.get();
+    const friend = mediaDoc.data()?.friend ?? 0;
+    const cv = mediaDoc.data()?.cv ?? 0;
+    batch.set(mediaRef, {
+      calc_ad_cost: adCost,
+      cpf: friend > 0 ? Math.round(adCost / friend) : 0,
+      cpa_val: cv > 0 ? Math.round(adCost / cv) : 0,
+    }, { merge: true });
+  }
+
+  // フロー別を更新
+  for (const [key, adCost] of Object.entries(flowAdCostMap)) {
+    const flowRef = adminDb.collection('daily_reports_L_by_flow').doc(key);
+    const flowDoc = await flowRef.get();
+    const friend = flowDoc.data()?.friend ?? 0;
+    const cv = flowDoc.data()?.cv ?? 0;
+    batch.set(flowRef, {
+      calc_ad_cost: adCost,
+      cpf: friend > 0 ? Math.round(adCost / friend) : 0,
+      cpa_val: cv > 0 ? Math.round(adCost / cv) : 0,
+    }, { merge: true });
+  }
+
+  await batch.commit();
 }

@@ -37,6 +37,7 @@ export default function MediaCostPage() {
   const [settings, setSettings] = useState<Settings>({});
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [hoveredMedia, setHoveredMedia] = useState<string | null>(null);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -96,10 +97,15 @@ export default function MediaCostPage() {
             <tbody>
               {mediaList.map((media) => {
                 const rules = [...(settings[media] ?? [])].sort((a, b) =>
-                  b.from_date.localeCompare(a.from_date)
+                  a.from_date.localeCompare(b.from_date)
                 );
                 return rules.map((rule, index) => (
-                  <tr key={`${media}-${rule.from_date}`} className="border-b border-[#EEF3F6] hover:bg-[#F5F8FA]">
+                  <tr
+                    key={`${media}-${rule.from_date}`}
+                    className={`border-b border-[#EEF3F6] ${hoveredMedia === media ? 'bg-[#F5F8FA]' : ''}`}
+                    onMouseEnter={() => setHoveredMedia(media)}
+                    onMouseLeave={() => setHoveredMedia(null)}
+                  >
                     {index === 0 ? (
                       <td className="px-4 py-3 font-medium" rowSpan={rules.length}>
                         {media}

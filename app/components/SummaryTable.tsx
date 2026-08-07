@@ -10,6 +10,9 @@ type SummaryRow = {
   friendRate: string;
   cv: number;
   cvr: string;
+  adCost: number;
+  cpf: number;
+  cpa: number;
 };
 
 export default function SummaryTable() {
@@ -33,8 +36,13 @@ export default function SummaryTable() {
   if (!data) return null;
 
   const total = (data.byMonth ?? []).reduce(
-    (acc, r) => ({ cl: acc.cl + r.cl, friend: acc.friend + r.friend, cv: acc.cv + r.cv }),
-    { cl: 0, friend: 0, cv: 0 }
+    (acc, r) => ({
+      cl: acc.cl + r.cl,
+      friend: acc.friend + r.friend,
+      cv: acc.cv + r.cv,
+      adCost: acc.adCost + (r.adCost ?? 0),
+    }),
+    { cl: 0, friend: 0, cv: 0, adCost: 0 }
   );
 
   return (
@@ -58,9 +66,9 @@ export default function SummaryTable() {
               <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.cl > 0 ? ((total.friend / total.cl) * 100).toFixed(2) + '%' : '-'}</td>
               <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.cv.toLocaleString()}</td>
               <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.friend > 0 ? ((total.cv / total.friend) * 100).toFixed(2) + '%' : '-'}</td>
-              <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>-</td>
-              <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>-</td>
-              <td className="px-4 py-2 text-right bg-[#D6E8F2]">-</td>
+              <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.friend > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.friend).toLocaleString()}` : '-'}</td>
+              <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.cv > 0 && total.adCost > 0 ? `¥${Math.round(total.adCost / total.cv).toLocaleString()}` : '-'}</td>
+              <td className="px-4 py-2 text-right bg-[#D6E8F2]" style={{ boxShadow: 'inset -1px 0 0 #C8DCE8' }}>{total.adCost > 0 ? `¥${total.adCost.toLocaleString()}` : '-'}</td>
             </tr>
           </thead>
           <tbody>
@@ -72,9 +80,9 @@ export default function SummaryTable() {
                 <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.friendRate}</td>
                 <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.cv.toLocaleString()}</td>
                 <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.cvr}</td>
-                <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">-</td>
-                <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">-</td>
-                <td className="px-4 py-2 text-right">-</td>
+                <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.cpf > 0 ? `¥${row.cpf.toLocaleString()}` : '-'}</td>
+                <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.cpa > 0 ? `¥${row.cpa.toLocaleString()}` : '-'}</td>
+                <td className="px-4 py-2 border-r border-[#EEF3F6] text-right">{row.adCost > 0 ? `¥${row.adCost.toLocaleString()}` : '-'}</td>
               </tr>
             ))}
           </tbody>
